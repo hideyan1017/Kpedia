@@ -499,7 +499,7 @@
 
     function requestEditAccess(mode, title = '') {
       if (mode === 'create') {
-        showEditor(title);
+        showEditor(title, false);
       } else if (mode === 'edit') {
         editCurrentArticle();
       }
@@ -605,22 +605,22 @@
       document.getElementById(viewId).style.display = 'block';
     }
 
-    function showEditor(title = '') {
-      isEditingExisting = !!title;
-      document.getElementById('editorHeading').textContent = title ? `「${title}」の編集` : '新しい記事を作成';
+    function showEditor(title = '', isExisting = false) {
+      isEditingExisting = isExisting;
+      document.getElementById('editorHeading').textContent = isExisting ? `「${title}」の編集` : '新しい記事を作成';
       document.getElementById('editTitle').value = title;
-      document.getElementById('editTitle').disabled = !!title;
+      document.getElementById('editTitle').disabled = isExisting;
 
       const deleteBtn = document.getElementById('editorDeleteBtn');
       const easyBtn = document.getElementById('tabEasy');
 
-      if (title) {
-        // 既存記事の編集：削除ボタンを表示、簡単モードタブを無効化
+      if (isExisting) {
+        // 既存記事の編集：削除ボタンを表示、簡単モードタブを非表示
         deleteBtn.style.display = 'inline-flex';
         easyBtn.classList.add('disabled');
-        easyBtn.style.display = 'none'; // 簡単モードタブを非表示に設定
+        easyBtn.style.display = 'none';
       } else {
-        // 新規作成時：削除ボタン非表示、簡単モードタブを有効化
+        // まだ無い記事（新規作成）：削除ボタン非表示、簡単モードタブを有効化
         deleteBtn.style.display = 'none';
         easyBtn.classList.remove('disabled');
         easyBtn.style.display = 'inline-block';
@@ -633,7 +633,7 @@
 
       addSectionInput('', '');
 
-      // 既存記事編集時はHTML直接モードに固定、新規作成時は簡単モードを初期値に
+      // 既存記事編集時はHTML直接モード、新規作成時は簡単モードを初期状態にする
       if (isEditingExisting) {
         switchEditMode('html');
       } else {
@@ -651,10 +651,12 @@
       const currentTitle = document.getElementById('displayTitle').textContent;
       const article = await getArticleData(currentTitle);
       
-      showEditor(currentTitle);
-      
       if (article) {
+        showEditor(currentTitle, true);
         document.getElementById('editHtmlContent').value = article.html;
+      } else {
+        // 記事が未作成の場合は新規作成扱い（簡単モードで開く）
+        showEditor(currentTitle, false);
       }
     }
 
