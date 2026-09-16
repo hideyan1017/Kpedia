@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- 追加したメタタグ・ファビコン -->
+  <!-- メタタグ・ファビコン -->
   <link rel="icon" href="https://lh6.googleusercontent.com/BE2wasp2QiugvFlJkY-HJvEdT_9kXPw5p3HkIy0ELVf9Q1b21HbLzcA4mQEL8N9vskSuQLhG52QyrQHyP_7n7BWsVTF3KB4uzqimyliV8wUofHPQ5CprLdBSJ1sOoXdjXn51i1jXq_-ucFIi9ZR49KGwgQ=s2048">
   <meta property="og:type" content="article" />
   <meta property="og:title" content="クロペディア" />
@@ -283,12 +283,12 @@
     import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
-      apiKey: "AIzaSyASa3MvaLSd5IWSYnBNVCcuPvMOMT8V58s",
-      authDomain: "kpedia-aecfb.firebaseapp.com",
-      projectId: "kpedia-aecfb",
-      storageBucket: "kpedia-aecfb.firebasestorage.app",
-      messagingSenderId: "701614110088",
-      appId: "1:701614110088:web:f236429cdd85080c59363d"
+      apiKey: "AIzaSyDh4uJuyse3rGvzXck6xCG4iOAdd7miS30",
+      authDomain: "kropedia-732d5.firebaseapp.com",
+      projectId: "kropedia-732d5",
+      storageBucket: "kropedia-732d5.firebasestorage.app",
+      messagingSenderId: "231614750943",
+      appId: "1:231614750943:web:034b63738bb20add39c96a"
     };
 
     let db;
@@ -308,6 +308,14 @@
     window.isFirebaseReady = isFirebaseReady;
     window.deleteDoc = deleteDoc;
     window.doc = doc;
+    window.getDoc = getDoc;
+    window.collection = collection;
+    window.getDocs = getDocs;
+
+    // Firebase準備完了時に読み込みを反映
+    if (window.isFirebaseReady && typeof window.handleRoute === "function") {
+      window.handleRoute();
+    }
   </script>
 </head>
 <body>
@@ -410,7 +418,7 @@
       "クロペディア": {
         title: "クロペディア",
         html: `
-          <p><strong>クロペディア</strong>は黒田の支配下の用語などがオンライン上で保管されている百科事典のことである。共同作業で百科事典を作り上げたいが一緒に作れるかは不明。</p>
+          <div>クロペディアは黒田の支配下の用語などがオンライン上で保管されている百科事典のことである。共同作業で百科事典を作り上げたいが一緒に作れるかは不明。</div><br>
           
           <details>
             <summary>概要</summary>
@@ -424,7 +432,7 @@
           <details>
             <summary>追加情報</summary>
             <div class="section-body">
-              <p>ここに自由に情報を追加していくことができます。</p>
+              <div>ここに自由に情報を追加していくことができます。</div>
             </div>
           </details>
         `
@@ -455,12 +463,10 @@
       loadAndDisplayArticle(title);
     }
 
-    // パスワード確認処理
     function checkPassword() {
       const userInput = prompt("編集用パスワードを入力してください:");
       if (userInput === null) return false;
 
-      // 全角数字を半角に変換して比較
       const cleanInput = String(userInput)
         .replace(/[０-９]/g, function(s) {
           return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
@@ -516,7 +522,7 @@
       if (window.isFirebaseReady && window.db) {
         try {
           const docRef = window.doc(window.db, "articles", title);
-          const docSnap = await getDoc(docRef);
+          const docSnap = await window.getDoc(docRef);
           if (docSnap.exists()) {
             return docSnap.data();
           }
@@ -663,18 +669,28 @@
       }
     }
 
+    // 改行を <p> ではなく <br> に変換する処理
     function parseContentToHtml(rawText) {
       if (!rawText.trim()) return '';
 
       const lines = rawText.split('\n');
       let htmlResult = '';
       let inList = false;
+      let paragraphLines = [];
+
+      function flushParagraph() {
+        if (paragraphLines.length > 0) {
+          htmlResult += `<div>${paragraphLines.join('<br>')}</div>\n`;
+          paragraphLines = [];
+        }
+      }
 
       lines.forEach(line => {
         const trimmed = line.trim();
         const isListItem = /^[・\-\*]/.test(trimmed);
 
         if (isListItem) {
+          flushParagraph();
           if (!inList) {
             htmlResult += '<ul>\n';
             inList = true;
@@ -687,7 +703,9 @@
             inList = false;
           }
           if (trimmed !== '') {
-            htmlResult += `<p>${formatTextToHtml(trimmed)}</p>\n`;
+            paragraphLines.push(formatTextToHtml(trimmed));
+          } else {
+            flushParagraph();
           }
         }
       });
@@ -695,6 +713,7 @@
       if (inList) {
         htmlResult += '</ul>\n';
       }
+      flushParagraph();
 
       return htmlResult;
     }
@@ -780,7 +799,7 @@
 
       if (window.isFirebaseReady && window.db) {
         try {
-          const querySnapshot = await getDocs(collection(window.db, "articles"));
+          const querySnapshot = await window.getDocs(window.collection(window.db, "articles"));
           querySnapshot.forEach((doc) => {
             articles[doc.id] = doc.data();
           });
