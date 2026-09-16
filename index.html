@@ -141,13 +141,24 @@
       text-align: justify;
     }
 
-    .wiki-link {
-      color: #0B0080;
+    /* 存在する記事：青色 */
+    .wiki-link-exists {
+      color: #002bb8;
       text-decoration: underline;
       cursor: pointer;
     }
-    .wiki-link:hover {
+    .wiki-link-exists:hover {
       color: #337ab7;
+    }
+
+    /* 存在しない記事：紫色 */
+    .wiki-link-missing {
+      color: #7b1fa2;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .wiki-link-missing:hover {
+      color: #a012e8;
     }
 
     /* 折りたたみセクション */
@@ -311,7 +322,6 @@
     window.collection = collection;
     window.getDocs = getDocs;
 
-    // 初期起動時の処理
     if (typeof window.initApp === "function") {
       window.initApp();
     }
@@ -441,7 +451,6 @@
     let isEditingExisting = false;
 
     window.initApp = async function() {
-      // 初期データのセットアップチェック
       if (window.isFirebaseReady && window.db) {
         try {
           const docRef = window.doc(window.db, "articles", "クロペディア");
@@ -543,12 +552,28 @@
       if (article) {
         const sanitizedHtml = article.html.replace(/<details\s+open[^>]*>/gi, '<details>');
         bodyContainer.innerHTML = sanitizedHtml;
+        await updateWikiLinksColor(bodyContainer);
       } else {
         bodyContainer.innerHTML = `
           <p>記事「<strong>${escapeHtml(title)}</strong>」はまだ作成されていません。</p>
           <button class="btn" style="margin-top: 12px;" onclick="createNewArticleWithTitle('${escapeHtml(title)}')">このタイトルで記事を作成する</button>
         `;
       }
+    }
+
+    // リンク先が存在するか確認して、青・紫の色クラスを更新
+    async function updateWikiLinksColor(container) {
+      const links = container.querySelectorAll('.wiki-link');
+      const allArticles = await getAllArticles();
+
+      links.forEach(link => {
+        const title = link.getAttribute('data-target');
+        if (title && allArticles[title]) {
+          link.className = 'wiki-link wiki-link-exists';
+        } else {
+          link.className = 'wiki-link wiki-link-missing';
+        }
+      });
     }
 
     function showView(viewId) {
@@ -612,7 +637,7 @@
           <button type="button" class="btn btn-danger btn-sm" onclick="removeSectionInput('${div.id}')">削除</button>
         </div>
         <div class="toolbar">
-          <button type="button" class="btn btn-outline btn-sm" onclick="insertWikiLink('${id}')">＋ Wiki青文字リンクを挿入</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="insertWikiLink('${id}')">＋ Wikiリンクを挿入</button>
         </div>
         <textarea id="${id}" class="form-control section-content-input" placeholder="内容を入力（・で行を始めると箇条書きになります）">${escapeHtml(content)}</textarea>
       `;
@@ -625,7 +650,7 @@
     }
 
     function insertWikiLink(textareaId) {
-      const linkText = prompt("リンク先（青文字にするキーワード）を入力してください:", "");
+      const linkText = prompt("リンク先（キーワード）を入力してください:", "");
       if (!linkText) return;
 
       const textarea = document.getElementById(textareaId);
@@ -737,7 +762,7 @@
     function formatTextToHtml(text) {
       let escaped = escapeHtml(text);
       return escaped.replace(/\[\[(.*?)\]\]/g, (match, p1) => {
-        return `<span class="wiki-link" onclick="navigateTo('${escapeHtml(p1)}')">${p1}</span>`;
+        return `<span class="wiki-link wiki-link-exists" data-target="${escapeHtml(p1)}" onclick="navigateTo('${escapeHtml(p1)}')">${p1}</span>`;
       });
     }
 
