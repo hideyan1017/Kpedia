@@ -295,13 +295,11 @@
     let isFirebaseReady = false;
 
     try {
-      if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
-        const app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        isFirebaseReady = true;
-      }
+      const app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+      isFirebaseReady = true;
     } catch (e) {
-      console.warn("Firebase接続設定が未完了のためローカルで動作します。", e);
+      console.warn("Firebase接続エラー。ローカル環境で代替します。", e);
     }
 
     window.db = db;
@@ -309,12 +307,13 @@
     window.deleteDoc = deleteDoc;
     window.doc = doc;
     window.getDoc = getDoc;
+    window.setDoc = setDoc;
     window.collection = collection;
     window.getDocs = getDocs;
 
-    // Firebase準備完了時に読み込みを反映
-    if (window.isFirebaseReady && typeof window.handleRoute === "function") {
-      window.handleRoute();
+    // 初期起動時の処理
+    if (typeof window.initApp === "function") {
+      window.initApp();
     }
   </script>
 </head>
@@ -416,7 +415,7 @@
       "クロペディア": {
         title: "クロペディア",
         html: `
-          <div>クロペディアは黒田の支配下の用語などがオンライン上で保管されている百科事典のことである。共同作業で百科事典を作り上げたいが一緒に作れるかは不明。</div><br>
+          <p>クロペディアは黒田の支配下の用語などがオンライン上で保管されている百科事典のことである。共同作業で百科事典を作り上げたいが一緒に作れるかは不明。</p>
           
           <details>
             <summary>概要</summary>
@@ -430,7 +429,7 @@
           <details>
             <summary>追加情報</summary>
             <div class="section-body">
-              <div>ここに自由に情報を追加していくことができます。</div>
+              <p>ここに自由に情報を追加していくことができます。</p>
             </div>
           </details>
         `
@@ -441,9 +440,27 @@
     let sectionCount = 0;
     let isEditingExisting = false;
 
+    window.initApp = async function() {
+      // 初期データのセットアップチェック
+      if (window.isFirebaseReady && window.db) {
+        try {
+          const docRef = window.doc(window.db, "articles", "クロペディア");
+          const docSnap = await window.getDoc(docRef);
+          if (!docSnap.exists()) {
+            await window.setDoc(docRef, defaultArticles["クロペディア"]);
+          }
+        } catch (e) {
+          console.warn("Firestore初期登録スキップ:", e);
+        }
+      }
+      handleRoute();
+    };
+
     window.addEventListener('DOMContentLoaded', () => {
       window.addEventListener('hashchange', handleRoute);
-      handleRoute();
+      if (window.isFirebaseReady) {
+        window.initApp();
+      }
     });
 
     function handleRoute() {
@@ -461,7 +478,6 @@
       loadAndDisplayArticle(title);
     }
 
-    // パスワード確認を撤去し、誰でもそのまま編集可能に変更
     function requestEditAccess(mode, title = '') {
       if (mode === 'create') {
         showEditor(title);
@@ -648,7 +664,6 @@
       }
     }
 
-    // 改行を <p> ではなく <br> に変換する処理
     function parseContentToHtml(rawText) {
       if (!rawText.trim()) return '';
 
@@ -659,7 +674,7 @@
 
       function flushParagraph() {
         if (paragraphLines.length > 0) {
-          htmlResult += `<div>${paragraphLines.join('<br>')}</div>\n`;
+          htmlResult += `<p>${paragraphLines.join('<br>')}</p>\n`;
           paragraphLines = [];
         }
       }
