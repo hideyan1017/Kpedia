@@ -239,6 +239,12 @@
       margin-bottom: -2px;
     }
 
+    .tab-btn.disabled {
+      color: #ccc;
+      cursor: not-allowed;
+      border-bottom: none;
+    }
+
     .section-block {
       background: #f9f9f9;
       border: 1px solid #ddd;
@@ -545,7 +551,6 @@
       return articles[title] || null;
     }
 
-    // [[記事名]] を span タグのリンクに変換する処理
     function convertWikiLinksToHtml(htmlString) {
       return htmlString.replace(/\[\[(.*?)\]\]/g, (match, p1) => {
         const target = escapeHtml(p1.trim());
@@ -563,8 +568,6 @@
 
       if (article) {
         let sanitizedHtml = article.html.replace(/<details\s+open[^>]*>/gi, '<details>');
-        
-        // HTML直接入力モードで入力された [[記事名]] もリンク化
         sanitizedHtml = convertWikiLinksToHtml(sanitizedHtml);
 
         bodyContainer.innerHTML = sanitizedHtml;
@@ -577,7 +580,6 @@
       }
     }
 
-    // リンクの色をリアルタイム判定で決定
     async function updateWikiLinksColor(container) {
       const links = container.querySelectorAll('.wiki-link');
       const allArticles = await getAllArticles();
@@ -610,10 +612,18 @@
       document.getElementById('editTitle').disabled = !!title;
 
       const deleteBtn = document.getElementById('editorDeleteBtn');
+      const easyBtn = document.getElementById('tabEasy');
+
       if (title) {
+        // 既存記事の編集：削除ボタンを表示、簡単モードタブを無効化
         deleteBtn.style.display = 'inline-flex';
+        easyBtn.classList.add('disabled');
+        easyBtn.style.display = 'none'; // 簡単モードタブを非表示に設定
       } else {
+        // 新規作成時：削除ボタン非表示、簡単モードタブを有効化
         deleteBtn.style.display = 'none';
+        easyBtn.classList.remove('disabled');
+        easyBtn.style.display = 'inline-block';
       }
 
       document.getElementById('editLead').value = '';
@@ -623,7 +633,13 @@
 
       addSectionInput('', '');
 
-      switchEditMode('easy');
+      // 既存記事編集時はHTML直接モードに固定、新規作成時は簡単モードを初期値に
+      if (isEditingExisting) {
+        switchEditMode('html');
+      } else {
+        switchEditMode('easy');
+      }
+      
       showView('viewEditor');
     }
 
@@ -685,6 +701,11 @@
     }
 
     function switchEditMode(mode) {
+      // 既存記事編集時は「簡単入力モード」への切替を不可に
+      if (isEditingExisting && mode === 'easy') {
+        return;
+      }
+
       currentMode = mode;
       const easyBtn = document.getElementById('tabEasy');
       const htmlBtn = document.getElementById('tabHtml');
@@ -702,7 +723,7 @@
         easyForm.style.display = 'none';
         htmlForm.style.display = 'block';
 
-        if (!document.getElementById('editHtmlContent').value) {
+        if (!document.getElementById('editHtmlContent').value && !isEditingExisting) {
           document.getElementById('editHtmlContent').value = generateHtmlFromEasyForm();
         }
       }
