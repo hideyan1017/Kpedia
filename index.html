@@ -143,22 +143,22 @@
 
     /* 存在する記事：青色 */
     .wiki-link-exists {
-      color: #002bb8;
+      color: #002bb8 !important;
       text-decoration: underline;
       cursor: pointer;
     }
     .wiki-link-exists:hover {
-      color: #337ab7;
+      color: #337ab7 !important;
     }
 
     /* 存在しない記事：紫色 */
     .wiki-link-missing {
-      color: #7b1fa2;
+      color: #7b1fa2 !important;
       text-decoration: underline;
       cursor: pointer;
     }
     .wiki-link-missing:hover {
-      color: #a012e8;
+      color: #a012e8 !important;
     }
 
     /* 折りたたみセクション */
@@ -561,17 +561,21 @@
       }
     }
 
-    // リンク先が存在するか確認して、青・紫の色クラスを更新
+    // リンクの色をリアルタイム判定で決定
     async function updateWikiLinksColor(container) {
       const links = container.querySelectorAll('.wiki-link');
       const allArticles = await getAllArticles();
 
       links.forEach(link => {
-        const title = link.getAttribute('data-target');
-        if (title && allArticles[title]) {
-          link.className = 'wiki-link wiki-link-exists';
+        // data-target 属性か、リンクテキスト自体を取得
+        const targetTitle = (link.getAttribute('data-target') || link.textContent).trim();
+        
+        if (targetTitle && allArticles[targetTitle]) {
+          link.classList.remove('wiki-link-missing');
+          link.classList.add('wiki-link-exists');
         } else {
-          link.className = 'wiki-link wiki-link-missing';
+          link.classList.remove('wiki-link-exists');
+          link.classList.add('wiki-link-missing');
         }
       });
     }
@@ -762,7 +766,7 @@
     function formatTextToHtml(text) {
       let escaped = escapeHtml(text);
       return escaped.replace(/\[\[(.*?)\]\]/g, (match, p1) => {
-        return `<span class="wiki-link wiki-link-exists" data-target="${escapeHtml(p1)}" onclick="navigateTo('${escapeHtml(p1)}')">${p1}</span>`;
+        return `<span class="wiki-link" data-target="${escapeHtml(p1)}" onclick="navigateTo('${escapeHtml(p1)}')">${p1}</span>`;
       });
     }
 
