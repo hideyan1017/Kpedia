@@ -412,8 +412,6 @@
   </div>
 
   <script>
-    const EDIT_PASSWORD = "8735";
-
     const defaultArticles = {
       "クロペディア": {
         title: "クロペディア",
@@ -463,31 +461,12 @@
       loadAndDisplayArticle(title);
     }
 
-    function checkPassword() {
-      const userInput = prompt("編集用パスワードを入力してください:");
-      if (userInput === null) return false;
-
-      const cleanInput = String(userInput)
-        .replace(/[０-９]/g, function(s) {
-          return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
-        })
-        .trim();
-
-      if (cleanInput === EDIT_PASSWORD) {
-        return true;
-      }
-
-      alert("パスワードが違います。");
-      return false;
-    }
-
+    // パスワード確認を撤去し、誰でもそのまま編集可能に変更
     function requestEditAccess(mode, title = '') {
-      if (checkPassword()) {
-        if (mode === 'create') {
-          showEditor(title);
-        } else if (mode === 'edit') {
-          editCurrentArticle();
-        }
+      if (mode === 'create') {
+        showEditor(title);
+      } else if (mode === 'edit') {
+        editCurrentArticle();
       }
     }
 
