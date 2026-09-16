@@ -336,7 +336,7 @@
 
   <!-- 検索バー -->
   <div class="search-container">
-    <input type="text" id="searchInput" class="search-input" placeholder="記事を検索..." onkeypress="handleSearchKeyPress(event)">
+    <input type="text" id="searchInput" class="search-input" placeholder="タイトルを検索..." onkeypress="handleSearchKeyPress(event)">
     <button class="btn" onclick="performSearch()">検索</button>
   </div>
 
@@ -381,7 +381,7 @@
           <div class="form-group">
             <label>導入文（記事上部の説明文）</label>
             <div class="toolbar">
-              <button type="button" class="btn btn-outline btn-sm" onclick="insertWikiLink('editLead')">＋ Wiki青文字リンクを挿入</button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="insertWikiLink('editLead')">＋ Wikiリンクを挿入</button>
             </div>
             <textarea id="editLead" class="form-control" placeholder="記事の概要を説明する文章を入力..."></textarea>
             <div class="hint-text">※[[記事名]] と書くと、自動的に他ページへの青文字リンクになります</div>
@@ -567,7 +567,6 @@
       const allArticles = await getAllArticles();
 
       links.forEach(link => {
-        // data-target 属性か、リンクテキスト自体を取得
         const targetTitle = (link.getAttribute('data-target') || link.textContent).trim();
         
         if (targetTitle && allArticles[targetTitle]) {
@@ -855,27 +854,28 @@
       `).join('');
     }
 
+    /* 記事タイトルのみを対象に検索を行う関数 */
     async function performSearch() {
       const query = document.getElementById('searchInput').value.trim().toLowerCase();
       if (!query) return;
 
       showView('viewList');
-      document.getElementById('listTitle').textContent = `「${query}」の検索結果`;
+      document.getElementById('listTitle').textContent = `「${query}」のタイトル検索結果`;
       const container = document.getElementById('articleListContainer');
       container.innerHTML = '<li>検索中...</li>';
 
       const articles = await getAllArticles();
       const results = [];
 
-      for (const [title, article] of Object.entries(articles)) {
-        const textContent = article.html.replace(/<[^>]*>/g, '').toLowerCase();
-        if (title.toLowerCase().includes(query) || textContent.includes(query)) {
+      for (const title of Object.keys(articles)) {
+        // タイトルのみにキーワードが含まれているか判定
+        if (title.toLowerCase().includes(query)) {
           results.push(title);
         }
       }
 
       if (results.length === 0) {
-        container.innerHTML = `<li>「${escapeHtml(query)}」に一致する記事は見つかりませんでした。</li>`;
+        container.innerHTML = `<li>「${escapeHtml(query)}」を含むタイトルの記事は見つかりませんでした。</li>`;
       } else {
         container.innerHTML = results.map(title => `
           <li>
