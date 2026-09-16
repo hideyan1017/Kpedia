@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- 追加したメタタグ・ファビコン -->
+  <link rel="icon" href="https://lh6.googleusercontent.com/BE2wasp2QiugvFlJkY-HJvEdT_9kXPw5p3HkIy0ELVf9Q1b21HbLzcA4mQEL8N9vskSuQLhG52QyrQHyP_7n7BWsVTF3KB4uzqimyliV8wUofHPQ5CprLdBSJ1sOoXdjXn51i1jXq_-ucFIi9ZR49KGwgQ=s2048">
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="クロペディア" />
+  <meta property="og:description" content="黒田の支配下の知らない世界へ" />
+  <meta property="og:image" content="https://lh7-rt.googleusercontent.com/slidesz/AGV_vUfehhfBL8YaFtmHEx18HvxrZ3dAlQHzYn-261r7yWABYgxlVThBqk-9X_OAILaC7pD9HdMvuVXLrwJ8UjcMnaoZbxB0PSjTb-2EkcNAPDmiKWgsSaKMC6SJbNk9ED5JEP1_qr0K1WTO320BVyBeYZm-DQfTmJw=nw?key=xpFZJiCkXzS-Q2OP2oX1bg" />
+
+  <title>クロペディア</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #111;
+      background-color: #fff;
+      line-height: 1.6;
+      padding: 16px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 12px;
+    }
+
+    .site-title {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      display: inline-block;
+    }
+
+    .search-container {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+
+    .search-input {
+      flex: 1;
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 2px;
+      font-size: 15px;
+      outline: none;
+    }
+
+    .search-input:focus {
+      border-color: #0056b3;
+    }
+
+    .btn {
+      background-color: #337ab7;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn:hover {
+      background-color: #286090;
+    }
+
+    .btn-secondary {
+      background-color: #5bc0de;
+    }
+    .btn-secondary:hover {
+      background-color: #31b0d5;
+    }
+
+    .btn-danger {
+      background-color: #d9534f;
+    }
+    .btn-danger:hover {
+      background-color: #c9302c;
+    }
+
+    .btn-outline {
+      background-color: transparent;
+      color: #337ab7;
+      border: 1px solid #337ab7;
+    }
+    .btn-outline:hover {
+      background-color: #e6f2ff;
+    }
+
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+
+    .action-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .card {
+      border: 1px solid #777;
+      padding: 20px 16px;
+      background: #fff;
+    }
+
+    .article-title {
+      font-size: 32px;
+      font-weight: bold;
+      margin-bottom: 12px;
+    }
+
+    .divider {
+      border: 0;
+      border-top: 1px solid #ccc;
+      margin: 12px 0 16px 0;
+    }
+
+    .article-content {
+      font-size: 15px;
+    }
+
+    .article-content p {
+      margin-bottom: 12px;
+      text-align: justify;
+    }
+
+    .wiki-link {
+      color: #0B0080;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .wiki-link:hover {
+      color: #337ab7;
+    }
+
+    /* 折りたたみセクション */
+    details {
+      margin-bottom: 16px;
+    }
+
+    summary {
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #ccc;
+      list-style: none;
+      user-select: none;
+    }
+
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .section-body {
+      padding-top: 12px;
+    }
+
+    .section-body ul {
+      padding-left: 20px;
+      margin-bottom: 12px;
+    }
+
+    .section-body li {
+      margin-bottom: 6px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .form-control {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+
+    textarea.form-control {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .mode-tabs {
+      display: flex;
+      border-bottom: 2px solid #ccc;
+      margin-bottom: 16px;
+    }
+
+    .tab-btn {
+      padding: 8px 16px;
+      border: none;
+      background: none;
+      font-size: 15px;
+      cursor: pointer;
+      font-weight: bold;
+      color: #666;
+    }
+
+    .tab-btn.active {
+      color: #337ab7;
+      border-bottom: 2px solid #337ab7;
+      margin-bottom: -2px;
+    }
+
+    .section-block {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .article-list {
+      list-style: none;
+    }
+
+    .article-list li {
+      padding: 10px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .article-list span.link-btn {
+      font-size: 18px;
+      color: #337ab7;
+      text-decoration: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .article-list span.link-btn:hover {
+      text-decoration: underline;
+    }
+
+    .hint-text {
+      font-size: 12px;
+      color: #666;
+      margin-top: 4px;
+    }
+  </style>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    let db;
+    let isFirebaseReady = false;
+
+    try {
+      if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        isFirebaseReady = true;
+      }
+    } catch (e) {
+      console.warn("Firebase接続設定が未完了のためローカルで動作します。", e);
+    }
+
+    window.db = db;
+    window.isFirebaseReady = isFirebaseReady;
+    window.deleteDoc = deleteDoc;
+    window.doc = doc;
+  </script>
+</head>
+<body>
+
+  <!-- ヘッダー -->
+  <header>
+    <div class="site-title" onclick="navigateTo('クロペディア')">クロペディア</div>
+  </header>
+
+  <!-- 検索バー -->
+  <div class="search-container">
+    <input type="text" id="searchInput" class="search-input" placeholder="記事を検索..." onkeypress="handleSearchKeyPress(event)">
+    <button class="btn" onclick="performSearch()">検索</button>
+  </div>
+
+  <!-- アクションボタン -->
+  <div class="action-bar">
+    <button class="btn btn-outline" onclick="requestEditAccess('create')">＋ 新しい記事を作成</button>
+    <button class="btn btn-outline" onclick="showArticleList()">記事一覧</button>
+  </div>
+
+  <!-- メイン枠（カード） -->
+  <div class="card">
+    
+    <!-- 1. 記事表示ビュー -->
+    <div id="viewArticle">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h1 id="displayTitle" class="article-title">クロペディア</h1>
+        <div>
+          <button class="btn btn-secondary" onclick="requestEditAccess('edit')">編集</button>
+        </div>
+      </div>
+      <hr class="divider">
+      <div id="displayBody" class="article-content">
+      </div>
+    </div>
+
+    <!-- 2. 記事作成・編集ビュー -->
+    <div id="viewEditor" style="display: none;">
+      <h2 id="editorHeading" style="margin-bottom: 12px;">記事の作成・編集</h2>
+      
+      <div class="mode-tabs">
+        <button class="tab-btn active" id="tabEasy" onclick="switchEditMode('easy')">簡単入力モード</button>
+        <button class="tab-btn" id="tabHtml" onclick="switchEditMode('html')">HTML直接編集モード</button>
+      </div>
+
+      <form id="articleForm" onsubmit="saveArticle(event)">
+        <div class="form-group">
+          <label for="editTitle">記事タイトル（URLになります）</label>
+          <input type="text" id="editTitle" class="form-control" placeholder="記事タイトルを入力" required>
+        </div>
+
+        <div id="easyFormMode">
+          <div class="form-group">
+            <label>導入文（記事上部の説明文）</label>
+            <div class="toolbar">
+              <button type="button" class="btn btn-outline btn-sm" onclick="insertWikiLink('editLead')">＋ Wiki青文字リンクを挿入</button>
+            </div>
+            <textarea id="editLead" class="form-control" placeholder="記事の概要を説明する文章を入力..."></textarea>
+            <div class="hint-text">※[[記事名]] と書くと、自動的に他ページへの青文字リンクになります</div>
+          </div>
+
+          <div class="form-group">
+            <label>折りたたみ項目（セクション）</label>
+            <div id="sectionsContainer"></div>
+            <button type="button" class="btn btn-outline btn-sm" onclick="addSectionInput()">＋ 項目を追加する</button>
+          </div>
+        </div>
+
+        <div id="htmlFormMode" style="display: none;">
+          <div class="form-group">
+            <label for="editHtmlContent">HTML本文</label>
+            <textarea id="editHtmlContent" class="form-control" style="min-height: 250px; font-family: monospace;"></textarea>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+          <div style="display: flex; gap: 8px;">
+            <button type="submit" class="btn">保存して公開</button>
+            <button type="button" class="btn btn-outline" onclick="cancelEdit()">キャンセル</button>
+          </div>
+          <button type="button" id="editorDeleteBtn" class="btn btn-danger" style="display: none;" onclick="deleteCurrentEditingArticle()">この記事を削除</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- 3. 検索・一覧ビュー -->
+    <div id="viewList" style="display: none;">
+      <h2 id="listTitle" style="margin-bottom: 12px;">記事一覧</h2>
+      <hr class="divider">
+      <ul id="articleListContainer" class="article-list"></ul>
+    </div>
+
+  </div>
+
+  <script>
+    const EDIT_PASSWORD = "8735";
+
+    const defaultArticles = {
+      "クロペディア": {
+        title: "クロペディア",
+        html: `
+          <p><strong>クロペディア</strong>は黒田の支配下の用語などがオンライン上で保管されている百科事典のことである。共同作業で百科事典を作り上げたいが一緒に作れるかは不明。</p>
+          
+          <details>
+            <summary>概要</summary>
+            <div class="section-body">
+              <ul>
+                <li>コンテンツとして提供する全ての文章、画像、音声情報について、内容の合法性・正確性・安全性等、あらゆる点において保証しません。</li>
+              </ul>
+            </div>
+          </details>
+
+          <details>
+            <summary>追加情報</summary>
+            <div class="section-body">
+              <p>ここに自由に情報を追加していくことができます。</p>
+            </div>
+          </details>
+        `
+      }
+    };
+
+    let currentMode = 'easy';
+    let sectionCount = 0;
+    let isEditingExisting = false;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      window.addEventListener('hashchange', handleRoute);
+      handleRoute();
+    });
+
+    function handleRoute() {
+      const rawHash = window.location.hash.substring(1);
+      const hash = rawHash ? decodeURIComponent(rawHash).trim() : '';
+      if (hash) {
+        loadAndDisplayArticle(hash);
+      } else {
+        loadAndDisplayArticle('クロペディア');
+      }
+    }
+
+    function navigateTo(title) {
+      window.location.hash = encodeURIComponent(title);
+      loadAndDisplayArticle(title);
+    }
+
+    // パスワード確認処理
+    function checkPassword() {
+      const userInput = prompt("編集用パスワードを入力してください:");
+      if (userInput === null) return false;
+
+      // 全角数字を半角に変換して比較
+      const cleanInput = String(userInput)
+        .replace(/[０-９]/g, function(s) {
+          return String.fromCharCode(s.charCodeAt(0) - 0xFEE0);
+        })
+        .trim();
+
+      if (cleanInput === EDIT_PASSWORD) {
+        return true;
+      }
+
+      alert("パスワードが違います。");
+      return false;
+    }
+
+    function requestEditAccess(mode, title = '') {
+      if (checkPassword()) {
+        if (mode === 'create') {
+          showEditor(title);
+        } else if (mode === 'edit') {
+          editCurrentArticle();
+        }
+      }
+    }
+
+    async function deleteCurrentEditingArticle() {
+      const currentTitle = document.getElementById('editTitle').value.trim();
+      if (!currentTitle) return;
+
+      if (confirm(`本当に記事「${currentTitle}」を削除しますか？`)) {
+        await deleteArticle(currentTitle);
+      }
+    }
+
+    async function deleteArticle(title) {
+      const localData = localStorage.getItem('kuropedia_articles');
+      let articles = localData ? JSON.parse(localData) : { ...defaultArticles };
+      delete articles[title];
+      localStorage.setItem('kuropedia_articles', JSON.stringify(articles));
+
+      if (window.isFirebaseReady && window.db) {
+        try {
+          await window.deleteDoc(window.doc(window.db, "articles", title));
+        } catch (e) {
+          console.warn("Firestore削除エラー:", e);
+        }
+      }
+
+      alert(`記事「${title}」を削除しました。`);
+      navigateTo('クロペディア');
+    }
+
+    async function getArticleData(title) {
+      if (window.isFirebaseReady && window.db) {
+        try {
+          const docRef = window.doc(window.db, "articles", title);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            return docSnap.data();
+          }
+        } catch (e) {
+          console.warn("Firestore取得エラー:", e);
+        }
+      }
+
+      const localData = localStorage.getItem('kuropedia_articles');
+      let articles = localData ? JSON.parse(localData) : { ...defaultArticles };
+
+      return articles[title] || null;
+    }
+
+    async function loadAndDisplayArticle(title) {
+      showView('viewArticle');
+      document.getElementById('displayTitle').textContent = title;
+      const bodyContainer = document.getElementById('displayBody');
+      bodyContainer.innerHTML = '<p style="color:#666;">読み込み中...</p>';
+      
+      const article = await getArticleData(title);
+
+      if (article) {
+        const sanitizedHtml = article.html.replace(/<details\s+open[^>]*>/gi, '<details>');
+        bodyContainer.innerHTML = sanitizedHtml;
+      } else {
+        bodyContainer.innerHTML = `
+          <p>記事「<strong>${escapeHtml(title)}</strong>」はまだ作成されていません。</p>
+          <button class="btn" style="margin-top: 12px;" onclick="createNewArticleWithTitle('${escapeHtml(title)}')">このタイトルで記事を作成する</button>
+        `;
+      }
+    }
+
+    function showView(viewId) {
+      document.getElementById('viewArticle').style.display = 'none';
+      document.getElementById('viewEditor').style.display = 'none';
+      document.getElementById('viewList').style.display = 'none';
+
+      document.getElementById(viewId).style.display = 'block';
+    }
+
+    function showEditor(title = '') {
+      isEditingExisting = !!title;
+      document.getElementById('editorHeading').textContent = title ? `「${title}」の編集` : '新しい記事を作成';
+      document.getElementById('editTitle').value = title;
+      document.getElementById('editTitle').disabled = !!title;
+
+      const deleteBtn = document.getElementById('editorDeleteBtn');
+      if (title) {
+        deleteBtn.style.display = 'inline-flex';
+      } else {
+        deleteBtn.style.display = 'none';
+      }
+
+      document.getElementById('editLead').value = '';
+      document.getElementById('editHtmlContent').value = '';
+      document.getElementById('sectionsContainer').innerHTML = '';
+      sectionCount = 0;
+
+      addSectionInput('', '');
+
+      switchEditMode('easy');
+      showView('viewEditor');
+    }
+
+    function createNewArticleWithTitle(title) {
+      requestEditAccess('create', title);
+    }
+
+    async function editCurrentArticle() {
+      const currentTitle = document.getElementById('displayTitle').textContent;
+      const article = await getArticleData(currentTitle);
+      
+      showEditor(currentTitle);
+      
+      if (article) {
+        document.getElementById('editHtmlContent').value = article.html;
+      }
+    }
+
+    function addSectionInput(title = '', content = '') {
+      sectionCount++;
+      const id = `section_body_${sectionCount}`;
+      const container = document.getElementById('sectionsContainer');
+
+      const div = document.createElement('div');
+      div.className = 'section-block';
+      div.id = `section_block_${sectionCount}`;
+      div.innerHTML = `
+        <div class="section-header">
+          <input type="text" class="form-control section-title-input" value="${escapeHtml(title)}" placeholder="項目名" style="font-weight:bold; width: 70%;">
+          <button type="button" class="btn btn-danger btn-sm" onclick="removeSectionInput('${div.id}')">削除</button>
+        </div>
+        <div class="toolbar">
+          <button type="button" class="btn btn-outline btn-sm" onclick="insertWikiLink('${id}')">＋ Wiki青文字リンクを挿入</button>
+        </div>
+        <textarea id="${id}" class="form-control section-content-input" placeholder="内容を入力（・で行を始めると箇条書きになります）">${escapeHtml(content)}</textarea>
+      `;
+      container.appendChild(div);
+    }
+
+    function removeSectionInput(blockId) {
+      const el = document.getElementById(blockId);
+      if (el) el.remove();
+    }
+
+    function insertWikiLink(textareaId) {
+      const linkText = prompt("リンク先（青文字にするキーワード）を入力してください:", "");
+      if (!linkText) return;
+
+      const textarea = document.getElementById(textareaId);
+      const tag = `[[${linkText}]]`;
+
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const text = textarea.value;
+
+      textarea.value = text.substring(0, start) + tag + text.substring(end);
+      textarea.focus();
+      textarea.selectionEnd = start + tag.length;
+    }
+
+    function switchEditMode(mode) {
+      currentMode = mode;
+      const easyBtn = document.getElementById('tabEasy');
+      const htmlBtn = document.getElementById('tabHtml');
+      const easyForm = document.getElementById('easyFormMode');
+      const htmlForm = document.getElementById('htmlFormMode');
+
+      if (mode === 'easy') {
+        easyBtn.classList.add('active');
+        htmlBtn.classList.remove('active');
+        easyForm.style.display = 'block';
+        htmlForm.style.display = 'none';
+      } else {
+        htmlBtn.classList.add('active');
+        easyBtn.classList.remove('active');
+        easyForm.style.display = 'none';
+        htmlForm.style.display = 'block';
+
+        if (!document.getElementById('editHtmlContent').value) {
+          document.getElementById('editHtmlContent').value = generateHtmlFromEasyForm();
+        }
+      }
+    }
+
+    function parseContentToHtml(rawText) {
+      if (!rawText.trim()) return '';
+
+      const lines = rawText.split('\n');
+      let htmlResult = '';
+      let inList = false;
+
+      lines.forEach(line => {
+        const trimmed = line.trim();
+        const isListItem = /^[・\-\*]/.test(trimmed);
+
+        if (isListItem) {
+          if (!inList) {
+            htmlResult += '<ul>\n';
+            inList = true;
+          }
+          const itemText = trimmed.replace(/^[・\-\*]\s*/, '');
+          htmlResult += `  <li>${formatTextToHtml(itemText)}</li>\n`;
+        } else {
+          if (inList) {
+            htmlResult += '</ul>\n';
+            inList = false;
+          }
+          if (trimmed !== '') {
+            htmlResult += `<p>${formatTextToHtml(trimmed)}</p>\n`;
+          }
+        }
+      });
+
+      if (inList) {
+        htmlResult += '</ul>\n';
+      }
+
+      return htmlResult;
+    }
+
+    function generateHtmlFromEasyForm() {
+      const lead = document.getElementById('editLead').value.trim();
+      let html = '';
+
+      if (lead) {
+        html += parseContentToHtml(lead) + '\n';
+      }
+
+      const blocks = document.querySelectorAll('.section-block');
+      blocks.forEach(block => {
+        const titleInput = block.querySelector('.section-title-input').value.trim();
+        const contentInput = block.querySelector('.section-content-input').value.trim();
+
+        if (titleInput && contentInput) {
+          const bodyHtml = parseContentToHtml(contentInput);
+          html += `<details>\n  <summary>${escapeHtml(titleInput)}</summary>\n  <div class="section-body">\n    ${bodyHtml}  </div>\n</details>\n\n`;
+        }
+      });
+
+      return html;
+    }
+
+    function formatTextToHtml(text) {
+      let escaped = escapeHtml(text);
+      return escaped.replace(/\[\[(.*?)\]\]/g, (match, p1) => {
+        return `<span class="wiki-link" onclick="navigateTo('${escapeHtml(p1)}')">${p1}</span>`;
+      });
+    }
+
+    async function saveArticle(event) {
+      event.preventDefault();
+
+      const title = document.getElementById('editTitle').value.trim();
+      if (!title) return;
+
+      if (!isEditingExisting) {
+        const existingArticle = await getArticleData(title);
+        if (existingArticle) {
+          alert(`「${title}」というタイトルの記事は既に存在します。\n同名の記事を新しく作ることはできません。`);
+          return;
+        }
+      }
+
+      let finalHtml = (currentMode === 'easy') 
+        ? generateHtmlFromEasyForm() 
+        : document.getElementById('editHtmlContent').value;
+
+      finalHtml = finalHtml.replace(/<details\s+open[^>]*>/gi, '<details>');
+
+      const articleData = {
+        title: title,
+        html: finalHtml,
+        updatedAt: new Date().toISOString()
+      };
+
+      const localData = localStorage.getItem('kuropedia_articles');
+      let articles = localData ? JSON.parse(localData) : { ...defaultArticles };
+      articles[title] = articleData;
+      localStorage.setItem('kuropedia_articles', JSON.stringify(articles));
+
+      if (window.isFirebaseReady && window.db) {
+        try {
+          await window.setDoc(window.doc(window.db, "articles", title), articleData);
+        } catch (e) {
+          console.warn("Firestore保存エラー:", e);
+        }
+      }
+
+      navigateTo(title);
+    }
+
+    function cancelEdit() {
+      handleRoute();
+    }
+
+    async function getAllArticles() {
+      const localData = localStorage.getItem('kuropedia_articles');
+      let articles = localData ? JSON.parse(localData) : { ...defaultArticles };
+
+      if (window.isFirebaseReady && window.db) {
+        try {
+          const querySnapshot = await getDocs(collection(window.db, "articles"));
+          querySnapshot.forEach((doc) => {
+            articles[doc.id] = doc.data();
+          });
+        } catch (e) {
+          console.warn("Firestore全取得エラー:", e);
+        }
+      }
+
+      return articles;
+    }
+
+    async function showArticleList() {
+      showView('viewList');
+      document.getElementById('listTitle').textContent = '記事一覧';
+      const container = document.getElementById('articleListContainer');
+      container.innerHTML = '<li>読み込み中...</li>';
+
+      const articles = await getAllArticles();
+      const keys = Object.keys(articles);
+
+      if (keys.length === 0) {
+        container.innerHTML = '<li>記事がありません。</li>';
+        return;
+      }
+
+      container.innerHTML = keys.map(key => `
+        <li>
+          <span class="link-btn" onclick="navigateTo('${escapeHtml(key)}')">${escapeHtml(key)}</span>
+        </li>
+      `).join('');
+    }
+
+    async function performSearch() {
+      const query = document.getElementById('searchInput').value.trim().toLowerCase();
+      if (!query) return;
+
+      showView('viewList');
+      document.getElementById('listTitle').textContent = `「${query}」の検索結果`;
+      const container = document.getElementById('articleListContainer');
+      container.innerHTML = '<li>検索中...</li>';
+
+      const articles = await getAllArticles();
+      const results = [];
+
+      for (const [title, article] of Object.entries(articles)) {
+        const textContent = article.html.replace(/<[^>]*>/g, '').toLowerCase();
+        if (title.toLowerCase().includes(query) || textContent.includes(query)) {
+          results.push(title);
+        }
+      }
+
+      if (results.length === 0) {
+        container.innerHTML = `<li>「${escapeHtml(query)}」に一致する記事は見つかりませんでした。</li>`;
+      } else {
+        container.innerHTML = results.map(title => `
+          <li>
+            <span class="link-btn" onclick="navigateTo('${escapeHtml(title)}')">${escapeHtml(title)}</span>
+          </li>
+        `).join('');
+      }
+    }
+
+    function handleSearchKeyPress(event) {
+      if (event.key === 'Enter') {
+        performSearch();
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/[&<>"']/g, function(m) {
+        return {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;'
+        }[m];
+      });
+    }
+  </script>
+</body>
+</html>
