@@ -477,8 +477,8 @@
     let sectionCount = 0;
     let isEditingExisting = false;
 
-    // ローカルストレージへ保存するヘルパー関数
     function saveToLocalStorage(articleData) {
+      if (!articleData || !articleData.title) return;
       const localData = localStorage.getItem('kuropedia_articles');
       let articles = localData ? JSON.parse(localData) : { ...defaultArticles };
       articles[articleData.title] = articleData;
@@ -557,14 +557,22 @@
       navigateTo('クロペディア');
     }
 
+    // 記事データの読み込み関数
     async function getArticleData(title) {
+      // 1. まずローカル(localStorage)を確認
+      const localData = localStorage.getItem('kuropedia_articles');
+      let articles = localData ? JSON.parse(localData) : { ...defaultArticles };
+      if (articles[title]) {
+        return articles[title];
+      }
+
+      // 2. ローカルになければ Firestore から取得して保存
       if (window.isFirebaseReady && window.db) {
         try {
           const docRef = window.doc(window.db, "articles", title);
           const docSnap = await window.getDoc(docRef);
           if (docSnap.exists()) {
             const data = docSnap.data();
-            // Firestoreから読み込んだ記事を端末のlocalStorageにも保存
             saveToLocalStorage(data);
             return data;
           }
@@ -573,9 +581,28 @@
         }
       }
 
+      return null;
+    }
+
+    // 記事が存在するか確認するだけの軽量関数（ループ防止）
+    async function checkArticleExists(title) {
       const localData = localStorage.getItem('kuropedia_articles');
       let articles = localData ? JSON.parse(localData) : { ...defaultArticles };
-      return articles[title] || null;
+      if (articles[title]) return true;
+
+      if (window.isFirebaseReady && window.db) {
+        try {
+          const docRef = window.doc(window.db, "articles", title);
+          const docSnap = await window.getDoc(docRef);
+          if (docSnap.exists()) {
+            saveToLocalStorage(docSnap.data());
+            return true;
+          }
+        } catch (e) {
+          return false;
+        }
+      }
+      return false;
     }
 
     function convertWikiLinksToHtml(htmlString) {
@@ -614,9 +641,9 @@
 
       for (const link of links) {
         const targetTitle = (link.getAttribute('data-target') || link.textContent).trim();
-        const article = await getArticleData(targetTitle);
+        const exists = await checkArticleExists(targetTitle);
 
-        if (article) {
+        if (exists) {
           link.classList.remove('wiki-link-missing');
           link.classList.add('wiki-link-exists');
         } else {
@@ -875,7 +902,6 @@
       handleRoute();
     }
 
-    // おまかせ表示機能
     async function openRandomArticle() {
       if (window.isFirebaseReady && window.db) {
         try {
@@ -905,7 +931,6 @@
       navigateTo(randomTitle);
     }
 
-    // --- 記事一覧（全件一括取得＆ローカル保存） ---
     async function showArticleList() {
       showView('viewList');
       document.getElementById('listTitle').textContent = '記事一覧';
@@ -932,7 +957,6 @@
         }
       }
 
-      // ローカル環境フォールバック
       const localData = localStorage.getItem('kuropedia_articles');
       let articles = localData ? JSON.parse(localData) : { ...defaultArticles };
       renderArticleListTitles(Object.keys(articles));
@@ -951,7 +975,6 @@
       `).join('');
     }
 
-    /* 検索処理 */
     async function performSearch() {
       const queryText = document.getElementById('searchInput').value.trim();
       if (!queryText) return;
@@ -986,7 +1009,6 @@
         }
       }
 
-      // ローカル環境フォールバック
       const localData = localStorage.getItem('kuropedia_articles');
       let articles = localData ? JSON.parse(localData) : { ...defaultArticles };
       const matched = Object.keys(articles).filter(t => t.toLowerCase().includes(queryText.toLowerCase()));
