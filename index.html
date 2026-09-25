@@ -7,14 +7,13 @@
   <!-- メタタグ・ファビコン -->
   <link rel="icon" href="https://raw.githubusercontent.com/hideyan1017/Kpedia/refs/heads/main/IMG_6634.png">
   <meta property="og:type" content="article" />
-  <head>
   <!-- ホーム画面用のアイコン指定 -->
   <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/hideyan1017/Kpedia/refs/heads/main/IMG_6634.png">
 
   <!-- 通常のファビコン指定 -->
   <link rel="icon" type="image/png" sizes="32x32" href="https://raw.githubusercontent.com/hideyan1017/Kpedia/refs/heads/main/IMG_6634.png">
   <link rel="icon" type="image/png" sizes="16x16" href="https://raw.githubusercontent.com/hideyan1017/Kpedia/refs/heads/main/IMG_6634.png">
-</head>
+
   <meta property="og:title" content="クロペディア" />
   <meta property="og:description" content="黒田の支配下の知らない世界へ" />
   <meta property="og:image" content="https://lh7-rt.googleusercontent.com/slidesz/AGV_vUfehhfBL8YaFtmHEx18HvxrZ3dAlQHzYn-261r7yWABYgxlVThBqk-9X_OAILaC7pD9HdMvuVXLrwJ8UjcMnaoZbxB0PSjTb-2EkcNAPDmiKWgsSaKMC6SJbNk9ED5JEP1_qr0K1WTO320BVyBeYZm-DQfTmJw=nw?key=xpFZJiCkXzS-Q2OP2oX1bg" />
@@ -468,6 +467,9 @@
     let sectionCount = 0;
     let isEditingExisting = false;
 
+    // 【高速化の工夫】取得したデータをメモリに保持するキャッシュ
+    let articlesCache = null;
+
     window.initApp = async function() {
       if (window.isFirebaseReady && window.db) {
         try {
@@ -536,17 +538,28 @@
         }
       }
 
+      // キャッシュを強制更新
+      await getAllArticles(true);
+
       alert(`記事「${title}」を削除しました。`);
       navigateTo('クロペディア');
     }
 
+    // 【高速化】キャッシュからデータを最速取得。無ければFirestoreから個別取得
     async function getArticleData(title) {
+      if (articlesCache && articlesCache[title]) {
+        return articlesCache[title];
+      }
+
       if (window.isFirebaseReady && window.db) {
         try {
           const docRef = window.doc(window.db, "articles", title);
           const docSnap = await window.getDoc(docRef);
           if (docSnap.exists()) {
-            return docSnap.data();
+            const data = docSnap.data();
+            if (!articlesCache) articlesCache = {};
+            articlesCache[title] = data;
+            return data;
           }
         } catch (e) {
           console.warn("Firestore取得エラー:", e);
@@ -570,8 +583,12 @@
       showView('viewArticle');
       document.getElementById('displayTitle').textContent = title;
       const bodyContainer = document.getElementById('displayBody');
-      bodyContainer.innerHTML = '<p style="color:#666;">読み込み中...</p>';
-      
+
+      // キャッシュにあれば即表示、無ければ「読み込み中...」と出す
+      if (!articlesCache || !articlesCache[title]) {
+        bodyContainer.innerHTML = '<p style="color:#666;">読み込み中...</p>';
+      }
+
       const article = await getArticleData(title);
 
       if (article) {
@@ -590,6 +607,8 @@
 
     async function updateWikiLinksColor(container) {
       const links = container.querySelectorAll('.wiki-link');
+      if (links.length === 0) return;
+
       const allArticles = await getAllArticles();
 
       links.forEach(link => {
@@ -623,12 +642,10 @@
       const easyBtn = document.getElementById('tabEasy');
 
       if (isExisting) {
-        // 既存記事の編集：削除ボタンを表示、簡単モードタブを非表示
         deleteBtn.style.display = 'inline-flex';
         easyBtn.classList.add('disabled');
         easyBtn.style.display = 'none';
       } else {
-        // まだ無い記事（新規作成）：削除ボタン非表示、簡単モードタブを有効化
         deleteBtn.style.display = 'none';
         easyBtn.classList.remove('disabled');
         easyBtn.style.display = 'inline-block';
@@ -641,7 +658,6 @@
 
       addSectionInput('', '');
 
-      // 既存記事編集時はHTML直接モード、新規作成時は簡単モードを初期状態にする
       if (isEditingExisting) {
         switchEditMode('html');
       } else {
@@ -663,7 +679,6 @@
         showEditor(currentTitle, true);
         document.getElementById('editHtmlContent').value = article.html;
       } else {
-        // 記事が未作成の場合は新規作成扱い（簡単モードで開く）
         showEditor(currentTitle, false);
       }
     }
@@ -711,7 +726,6 @@
     }
 
     function switchEditMode(mode) {
-      // 既存記事編集時は「簡単入力モード」への切替を不可に
       if (isEditingExisting && mode === 'easy') {
         return;
       }
@@ -855,6 +869,9 @@
         }
       }
 
+      // キャッシュを最新化
+      await getAllArticles(true);
+
       navigateTo(title);
     }
 
@@ -862,7 +879,12 @@
       handleRoute();
     }
 
-    async function getAllArticles() {
+    // 【高速化】一度取得したら2回目以降は通信ゼロで全記事を取得する関数
+    async function getAllArticles(forceRefresh = false) {
+      if (articlesCache && !forceRefresh) {
+        return articlesCache;
+      }
+
       const localData = localStorage.getItem('kuropedia_articles');
       let articles = localData ? JSON.parse(localData) : { ...defaultArticles };
 
@@ -877,6 +899,7 @@
         }
       }
 
+      articlesCache = articles;
       return articles;
     }
 
@@ -884,7 +907,10 @@
       showView('viewList');
       document.getElementById('listTitle').textContent = '記事一覧';
       const container = document.getElementById('articleListContainer');
-      container.innerHTML = '<li>読み込み中...</li>';
+      
+      if (!articlesCache) {
+        container.innerHTML = '<li>読み込み中...</li>';
+      }
 
       const articles = await getAllArticles();
       const keys = Object.keys(articles);
@@ -901,7 +927,7 @@
       `).join('');
     }
 
-    /* 記事タイトルのみを対象に検索を行う関数 */
+    /* 記事タイトルのみを対象に検索を行う関数（キャッシュ利用で高速） */
     async function performSearch() {
       const query = document.getElementById('searchInput').value.trim().toLowerCase();
       if (!query) return;
@@ -909,7 +935,10 @@
       showView('viewList');
       document.getElementById('listTitle').textContent = `「${query}」のタイトル検索結果`;
       const container = document.getElementById('articleListContainer');
-      container.innerHTML = '<li>検索中...</li>';
+      
+      if (!articlesCache) {
+        container.innerHTML = '<li>検索中...</li>';
+      }
 
       const articles = await getAllArticles();
       const results = [];
