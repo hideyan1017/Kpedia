@@ -302,16 +302,6 @@
       color: #666;
       margin-top: 4px;
     }
-
-    /* ページネーション用スタイル */
-    .pagination-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 16px;
-      padding-top: 12px;
-      border-top: 1px solid #eee;
-    }
   </style>
 
   <!-- Firebase SDK -->
@@ -319,7 +309,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { 
       getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, 
-      query, orderBy, limit, startAfter, endBefore, limitToLast, where 
+      query, orderBy, where 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -352,10 +342,6 @@
     window.getDocs = getDocs;
     window.query = query;
     window.orderBy = orderBy;
-    window.limit = limit;
-    window.startAfter = startAfter;
-    window.endBefore = endBefore;
-    window.limitToLast = limitToLast;
     window.where = where;
 
     if (typeof window.initApp === "function") {
@@ -457,12 +443,6 @@
       <h2 id="listTitle" style="margin-bottom: 12px;">記事一覧</h2>
       <hr class="divider">
       <ul id="articleListContainer" class="article-list"></ul>
-
-      <!-- 10件ずつ用のページネーションUI -->
-      <div id="paginationBar" class="pagination-bar" style="display: none;">
-        <button id="prevBtn" class="btn btn-outline btn-sm" onclick="changePage('prev')" disabled>前へ</button>
-        <button id="nextBtn" class="btn btn-outline btn-sm" onclick="changePage('next')" disabled>次へ</button>
-      </div>
     </div>
 
   </div>
@@ -497,11 +477,13 @@
     let sectionCount = 0;
     let isEditingExisting = false;
 
-    // ページネーション用の管理変数
-    const PAGE_SIZE = 10;
-    let firstDoc = null;
-    let lastDoc = null;
-    let pageHistory = [];
+    // ローカルストレージへ保存するヘルパー関数
+    function saveToLocalStorage(articleData) {
+      const localData = localStorage.getItem('kuropedia_articles');
+      let articles = localData ? JSON.parse(localData) : { ...defaultArticles };
+      articles[articleData.title] = articleData;
+      localStorage.setItem('kuropedia_articles', JSON.stringify(articles));
+    }
 
     window.initApp = async function() {
       if (window.isFirebaseReady && window.db) {
@@ -581,7 +563,10 @@
           const docRef = window.doc(window.db, "articles", title);
           const docSnap = await window.getDoc(docRef);
           if (docSnap.exists()) {
-            return docSnap.data();
+            const data = docSnap.data();
+            // Firestoreから読み込んだ記事を端末のlocalStorageにも保存
+            saveToLocalStorage(data);
+            return data;
           }
         } catch (e) {
           console.warn("Firestore取得エラー:", e);
@@ -873,10 +858,7 @@
         updatedAt: new Date().toISOString()
       };
 
-      const localData = localStorage.getItem('kuropedia_articles');
-      let articles = localData ? JSON.parse(localData) : { ...defaultArticles };
-      articles[title] = articleData;
-      localStorage.setItem('kuropedia_articles', JSON.stringify(articles));
+      saveToLocalStorage(articleData);
 
       if (window.isFirebaseReady && window.db) {
         try {
@@ -897,11 +879,13 @@
     async function openRandomArticle() {
       if (window.isFirebaseReady && window.db) {
         try {
-          const q = window.query(window.collection(window.db, "articles"), window.limit(20));
+          const q = window.query(window.collection(window.db, "articles"));
           const snapshot = await window.getDocs(q);
           const docs = snapshot.docs;
           if (docs.length > 0) {
             const randomDoc = docs[Math.floor(Math.random() * docs.length)];
+            const articleData = randomDoc.data();
+            saveToLocalStorage(articleData);
             navigateTo(randomDoc.id);
             return;
           }
@@ -921,60 +905,28 @@
       navigateTo(randomTitle);
     }
 
-    // --- 記事一覧（10件ずつの取得処理） ---
+    // --- 記事一覧（全件一括取得＆ローカル保存） ---
     async function showArticleList() {
       showView('viewList');
       document.getElementById('listTitle').textContent = '記事一覧';
-      document.getElementById('paginationBar').style.display = 'flex';
-      
-      pageHistory = [];
-      await loadArticlesPage('first');
-    }
-
-    async function changePage(direction) {
-      await loadArticlesPage(direction);
-    }
-
-    async function loadArticlesPage(direction = 'first') {
       const container = document.getElementById('articleListContainer');
       container.innerHTML = '<li>読み込み中...</li>';
 
       if (window.isFirebaseReady && window.db) {
         try {
-          let q;
-          const articlesRef = window.collection(window.db, "articles");
-
-          if (direction === 'first') {
-            q = window.query(articlesRef, window.orderBy("title"), window.limit(PAGE_SIZE));
-            pageHistory = [];
-          } else if (direction === 'next' && lastDoc) {
-            q = window.query(articlesRef, window.orderBy("title"), window.startAfter(lastDoc), window.limit(PAGE_SIZE));
-          } else if (direction === 'prev' && pageHistory.length > 0) {
-            const prevFirstDoc = pageHistory.pop();
-            q = window.query(articlesRef, window.orderBy("title"), window.endBefore(prevFirstDoc), window.limitToLast(PAGE_SIZE));
-          }
-
+          const q = window.query(window.collection(window.db, "articles"), window.orderBy("title"));
           const snapshot = await window.getDocs(q);
 
-          if (snapshot.empty) {
-            if (direction === 'next') alert("次の記事はありません");
+          if (!snapshot.empty) {
+            const titles = [];
+            snapshot.docs.forEach(docSnap => {
+              const data = docSnap.data();
+              saveToLocalStorage(data);
+              titles.push(docSnap.id);
+            });
+            renderArticleListTitles(titles);
             return;
           }
-
-          if (direction === 'next' && firstDoc) {
-            pageHistory.push(firstDoc);
-          }
-
-          firstDoc = snapshot.docs[0];
-          lastDoc = snapshot.docs[snapshot.docs.length - 1];
-
-          renderArticleListDocs(snapshot.docs);
-
-          // ボタン状態更新
-          document.getElementById("prevBtn").disabled = pageHistory.length === 0;
-          document.getElementById("nextBtn").disabled = snapshot.docs.length < PAGE_SIZE;
-          return;
-
         } catch (e) {
           console.warn("Firestore一覧取得エラー:", e);
         }
@@ -983,23 +935,7 @@
       // ローカル環境フォールバック
       const localData = localStorage.getItem('kuropedia_articles');
       let articles = localData ? JSON.parse(localData) : { ...defaultArticles };
-      const titles = Object.keys(articles);
-      renderArticleListTitles(titles.slice(0, PAGE_SIZE));
-      document.getElementById("prevBtn").disabled = true;
-      document.getElementById("nextBtn").disabled = true;
-    }
-
-    function renderArticleListDocs(docs) {
-      const container = document.getElementById('articleListContainer');
-      if (docs.length === 0) {
-        container.innerHTML = '<li>表示できる記事がありません。</li>';
-        return;
-      }
-      container.innerHTML = docs.map(d => `
-        <li>
-          <span class="link-btn" onclick="navigateTo('${escapeHtml(d.id)}')">${escapeHtml(d.id)}</span>
-        </li>
-      `).join('');
+      renderArticleListTitles(Object.keys(articles));
     }
 
     function renderArticleListTitles(titles) {
@@ -1015,14 +951,13 @@
       `).join('');
     }
 
-    /* 検索処理（データベースから直接検索） */
+    /* 検索処理 */
     async function performSearch() {
       const queryText = document.getElementById('searchInput').value.trim();
       if (!queryText) return;
 
       showView('viewList');
       document.getElementById('listTitle').textContent = `「${queryText}」のタイトル検索結果`;
-      document.getElementById('paginationBar').style.display = 'none';
 
       const container = document.getElementById('articleListContainer');
       container.innerHTML = '<li>検索中...</li>';
@@ -1038,7 +973,13 @@
           );
 
           const snapshot = await window.getDocs(q);
-          renderArticleListDocs(snapshot.docs);
+          const titles = [];
+          snapshot.docs.forEach(docSnap => {
+            const data = docSnap.data();
+            saveToLocalStorage(data);
+            titles.push(docSnap.id);
+          });
+          renderArticleListTitles(titles);
           return;
         } catch (e) {
           console.warn("Firestore検索エラー:", e);
