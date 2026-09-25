@@ -7,10 +7,8 @@
   <!-- メタタグ・ファビコン -->
   <link rel="icon" href="https://raw.githubusercontent.com/hideyan1017/Kpedia/refs/heads/main/IMG_6634.png">
   <meta property="og:type" content="article" />
-  <!-- ホーム画面用のアイコン指定 -->
   <link rel="apple-touch-icon" sizes="180x180" href="https://raw.githubusercontent.com/hideyan1017/Kpedia/refs/heads/main/IMG_6634.png">
 
-  <!-- 通常のファビコン指定 -->
   <link rel="icon" type="image/png" sizes="32x32" href="https://raw.githubusercontent.com/hideyan1017/Kpedia/refs/heads/main/IMG_6634.png">
   <link rel="icon" type="image/png" sizes="16x16" href="https://raw.githubusercontent.com/hideyan1017/Kpedia/refs/heads/main/IMG_6634.png">
 
@@ -84,6 +82,11 @@
 
     .btn:hover {
       background-color: #286090;
+    }
+
+    .btn:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
     }
 
     .btn-secondary {
@@ -299,12 +302,25 @@
       color: #666;
       margin-top: 4px;
     }
+
+    /* ページネーション用スタイル */
+    .pagination-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid #eee;
+    }
   </style>
 
   <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { 
+      getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, 
+      query, orderBy, limit, startAfter, endBefore, limitToLast, where 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDh4uJuyse3rGvzXck6xCG4iOAdd7miS30",
@@ -334,7 +350,13 @@
     window.setDoc = setDoc;
     window.collection = collection;
     window.getDocs = getDocs;
-    window.onSnapshot = onSnapshot;
+    window.query = query;
+    window.orderBy = orderBy;
+    window.limit = limit;
+    window.startAfter = startAfter;
+    window.endBefore = endBefore;
+    window.limitToLast = limitToLast;
+    window.where = where;
 
     if (typeof window.initApp === "function") {
       window.initApp();
@@ -350,7 +372,7 @@
 
   <!-- 検索バー -->
   <div class="search-container">
-    <input type="text" id="searchInput" class="search-input" placeholder="タイトルを検索..." onkeypress="handleSearchKeyPress(event)">
+    <input type="text" id="searchInput" class="search-input" placeholder="タイトルで検索..." onkeypress="handleSearchKeyPress(event)">
     <button class="btn" onclick="performSearch()">検索</button>
   </div>
 
@@ -435,6 +457,12 @@
       <h2 id="listTitle" style="margin-bottom: 12px;">記事一覧</h2>
       <hr class="divider">
       <ul id="articleListContainer" class="article-list"></ul>
+
+      <!-- 10件ずつ用のページネーションUI -->
+      <div id="paginationBar" class="pagination-bar" style="display: none;">
+        <button id="prevBtn" class="btn btn-outline btn-sm" onclick="changePage('prev')" disabled>前へ</button>
+        <button id="nextBtn" class="btn btn-outline btn-sm" onclick="changePage('next')" disabled>次へ</button>
+      </div>
     </div>
 
   </div>
@@ -469,9 +497,11 @@
     let sectionCount = 0;
     let isEditingExisting = false;
 
-    // キャッシュ
-    let articlesCache = null;
-    let unsubscribeArticles = null;
+    // ページネーション用の管理変数
+    const PAGE_SIZE = 10;
+    let firstDoc = null;
+    let lastDoc = null;
+    let pageHistory = [];
 
     window.initApp = async function() {
       if (window.isFirebaseReady && window.db) {
@@ -484,21 +514,6 @@
         } catch (e) {
           console.warn("Firestore初期登録スキップ:", e);
         }
-        
-        // リアルタイム変更を監視してキャッシュを最新に保つ
-        window.onSnapshot(window.collection(window.db, "articles"), (snapshot) => {
-          if (!articlesCache) articlesCache = {};
-          snapshot.forEach((doc) => {
-            articlesCache[doc.id] = doc.data();
-          });
-          // 記事一覧を表示中であれば動的に更新する
-          if (document.getElementById('viewList').style.display === 'block') {
-            const listTitle = document.getElementById('listTitle').textContent;
-            if (listTitle === '記事一覧') {
-              renderAllArticlesList(articlesCache);
-            }
-          }
-        });
       }
       handleRoute();
     };
@@ -556,26 +571,17 @@
         }
       }
 
-      await getAllArticles(true);
-
       alert(`記事「${title}」を削除しました。`);
       navigateTo('クロペディア');
     }
 
     async function getArticleData(title) {
-      if (articlesCache && articlesCache[title]) {
-        return articlesCache[title];
-      }
-
       if (window.isFirebaseReady && window.db) {
         try {
           const docRef = window.doc(window.db, "articles", title);
           const docSnap = await window.getDoc(docRef);
           if (docSnap.exists()) {
-            const data = docSnap.data();
-            if (!articlesCache) articlesCache = {};
-            articlesCache[title] = data;
-            return data;
+            return docSnap.data();
           }
         } catch (e) {
           console.warn("Firestore取得エラー:", e);
@@ -584,7 +590,6 @@
 
       const localData = localStorage.getItem('kuropedia_articles');
       let articles = localData ? JSON.parse(localData) : { ...defaultArticles };
-
       return articles[title] || null;
     }
 
@@ -600,9 +605,7 @@
       document.getElementById('displayTitle').textContent = title;
       const bodyContainer = document.getElementById('displayBody');
 
-      if (!articlesCache || !articlesCache[title]) {
-        bodyContainer.innerHTML = '<p style="color:#666;">読み込み中...</p>';
-      }
+      bodyContainer.innerHTML = '<p style="color:#666;">読み込み中...</p>';
 
       const article = await getArticleData(title);
 
@@ -624,19 +627,18 @@
       const links = container.querySelectorAll('.wiki-link');
       if (links.length === 0) return;
 
-      const allArticles = await getAllArticles();
-
-      links.forEach(link => {
+      for (const link of links) {
         const targetTitle = (link.getAttribute('data-target') || link.textContent).trim();
-        
-        if (targetTitle && allArticles.hasOwnProperty(targetTitle)) {
+        const article = await getArticleData(targetTitle);
+
+        if (article) {
           link.classList.remove('wiki-link-missing');
           link.classList.add('wiki-link-exists');
         } else {
           link.classList.remove('wiki-link-exists');
           link.classList.add('wiki-link-missing');
         }
-      });
+      }
     }
 
     function showView(viewId) {
@@ -884,8 +886,6 @@
         }
       }
 
-      await getAllArticles(true);
-
       navigateTo(title);
     }
 
@@ -893,32 +893,25 @@
       handleRoute();
     }
 
-    async function getAllArticles(forceRefresh = false) {
-      if (articlesCache && !forceRefresh) {
-        return articlesCache;
+    // おまかせ表示機能
+    async function openRandomArticle() {
+      if (window.isFirebaseReady && window.db) {
+        try {
+          const q = window.query(window.collection(window.db, "articles"), window.limit(20));
+          const snapshot = await window.getDocs(q);
+          const docs = snapshot.docs;
+          if (docs.length > 0) {
+            const randomDoc = docs[Math.floor(Math.random() * docs.length)];
+            navigateTo(randomDoc.id);
+            return;
+          }
+        } catch (e) {
+          console.warn("Firestoreランダム取得エラー:", e);
+        }
       }
 
       const localData = localStorage.getItem('kuropedia_articles');
       let articles = localData ? JSON.parse(localData) : { ...defaultArticles };
-
-      if (window.isFirebaseReady && window.db) {
-        try {
-          const querySnapshot = await window.getDocs(window.collection(window.db, "articles"));
-          querySnapshot.forEach((doc) => {
-            articles[doc.id] = doc.data();
-          });
-        } catch (e) {
-          console.warn("Firestore全取得エラー:", e);
-        }
-      }
-
-      articlesCache = articles;
-      return articles;
-    }
-
-    // おまかせ表示機能
-    async function openRandomArticle() {
-      const articles = await getAllArticles();
       const keys = Object.keys(articles);
       if (keys.length === 0) {
         alert("記事がありません。");
@@ -928,51 +921,135 @@
       navigateTo(randomTitle);
     }
 
-    // 記事一覧を表示（全件を一括読み込み・表示）
+    // --- 記事一覧（10件ずつの取得処理） ---
     async function showArticleList() {
       showView('viewList');
       document.getElementById('listTitle').textContent = '記事一覧';
+      document.getElementById('paginationBar').style.display = 'flex';
       
-      const articles = await getAllArticles();
-      renderAllArticlesList(articles);
+      pageHistory = [];
+      await loadArticlesPage('first');
     }
 
-    // 全記事を一括描写する処理
-    function renderAllArticlesList(articles) {
-      const container = document.getElementById('articleListContainer');
-      const keys = Object.keys(articles);
+    async function changePage(direction) {
+      await loadArticlesPage(direction);
+    }
 
-      if (keys.length === 0) {
+    async function loadArticlesPage(direction = 'first') {
+      const container = document.getElementById('articleListContainer');
+      container.innerHTML = '<li>読み込み中...</li>';
+
+      if (window.isFirebaseReady && window.db) {
+        try {
+          let q;
+          const articlesRef = window.collection(window.db, "articles");
+
+          if (direction === 'first') {
+            q = window.query(articlesRef, window.orderBy("title"), window.limit(PAGE_SIZE));
+            pageHistory = [];
+          } else if (direction === 'next' && lastDoc) {
+            q = window.query(articlesRef, window.orderBy("title"), window.startAfter(lastDoc), window.limit(PAGE_SIZE));
+          } else if (direction === 'prev' && pageHistory.length > 0) {
+            const prevFirstDoc = pageHistory.pop();
+            q = window.query(articlesRef, window.orderBy("title"), window.endBefore(prevFirstDoc), window.limitToLast(PAGE_SIZE));
+          }
+
+          const snapshot = await window.getDocs(q);
+
+          if (snapshot.empty) {
+            if (direction === 'next') alert("次の記事はありません");
+            return;
+          }
+
+          if (direction === 'next' && firstDoc) {
+            pageHistory.push(firstDoc);
+          }
+
+          firstDoc = snapshot.docs[0];
+          lastDoc = snapshot.docs[snapshot.docs.length - 1];
+
+          renderArticleListDocs(snapshot.docs);
+
+          // ボタン状態更新
+          document.getElementById("prevBtn").disabled = pageHistory.length === 0;
+          document.getElementById("nextBtn").disabled = snapshot.docs.length < PAGE_SIZE;
+          return;
+
+        } catch (e) {
+          console.warn("Firestore一覧取得エラー:", e);
+        }
+      }
+
+      // ローカル環境フォールバック
+      const localData = localStorage.getItem('kuropedia_articles');
+      let articles = localData ? JSON.parse(localData) : { ...defaultArticles };
+      const titles = Object.keys(articles);
+      renderArticleListTitles(titles.slice(0, PAGE_SIZE));
+      document.getElementById("prevBtn").disabled = true;
+      document.getElementById("nextBtn").disabled = true;
+    }
+
+    function renderArticleListDocs(docs) {
+      const container = document.getElementById('articleListContainer');
+      if (docs.length === 0) {
         container.innerHTML = '<li>表示できる記事がありません。</li>';
         return;
       }
-
-      container.innerHTML = keys.map(key => `
+      container.innerHTML = docs.map(d => `
         <li>
-          <span class="link-btn" onclick="navigateTo('${escapeHtml(key)}')">${escapeHtml(key)}</span>
+          <span class="link-btn" onclick="navigateTo('${escapeHtml(d.id)}')">${escapeHtml(d.id)}</span>
         </li>
       `).join('');
     }
 
-    /* 検索処理（全件一括表示） */
+    function renderArticleListTitles(titles) {
+      const container = document.getElementById('articleListContainer');
+      if (titles.length === 0) {
+        container.innerHTML = '<li>表示できる記事がありません。</li>';
+        return;
+      }
+      container.innerHTML = titles.map(title => `
+        <li>
+          <span class="link-btn" onclick="navigateTo('${escapeHtml(title)}')">${escapeHtml(title)}</span>
+        </li>
+      `).join('');
+    }
+
+    /* 検索処理（データベースから直接検索） */
     async function performSearch() {
-      const query = document.getElementById('searchInput').value.trim().toLowerCase();
-      if (!query) return;
+      const queryText = document.getElementById('searchInput').value.trim();
+      if (!queryText) return;
 
       showView('viewList');
-      document.getElementById('listTitle').textContent = `「${query}」のタイトル検索結果`;
+      document.getElementById('listTitle').textContent = `「${queryText}」のタイトル検索結果`;
+      document.getElementById('paginationBar').style.display = 'none';
+
       const container = document.getElementById('articleListContainer');
+      container.innerHTML = '<li>検索中...</li>';
 
-      const articles = await getAllArticles();
-      const filteredArticles = {};
+      if (window.isFirebaseReady && window.db) {
+        try {
+          const articlesRef = window.collection(window.db, "articles");
+          const q = window.query(
+            articlesRef,
+            window.orderBy("title"),
+            window.where("title", ">=", queryText),
+            window.where("title", "<=", queryText + "\uf8ff")
+          );
 
-      for (const title of Object.keys(articles)) {
-        if (title.toLowerCase().includes(query)) {
-          filteredArticles[title] = articles[title];
+          const snapshot = await window.getDocs(q);
+          renderArticleListDocs(snapshot.docs);
+          return;
+        } catch (e) {
+          console.warn("Firestore検索エラー:", e);
         }
       }
 
-      renderAllArticlesList(filteredArticles);
+      // ローカル環境フォールバック
+      const localData = localStorage.getItem('kuropedia_articles');
+      let articles = localData ? JSON.parse(localData) : { ...defaultArticles };
+      const matched = Object.keys(articles).filter(t => t.toLowerCase().includes(queryText.toLowerCase()));
+      renderArticleListTitles(matched);
     }
 
     function handleSearchKeyPress(event) {
