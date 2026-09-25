@@ -299,27 +299,12 @@
       color: #666;
       margin-top: 4px;
     }
-
-    /* ページネーション用スタイル */
-    .pagination-container {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 16px;
-      padding-top: 12px;
-      border-top: 1px solid #eee;
-    }
-
-    .pagination-info {
-      font-size: 14px;
-      color: #666;
-    }
   </style>
 
   <!-- Firebase SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDh4uJuyse3rGvzXck6xCG4iOAdd7miS30",
@@ -349,6 +334,7 @@
     window.setDoc = setDoc;
     window.collection = collection;
     window.getDocs = getDocs;
+    window.onSnapshot = onSnapshot;
 
     if (typeof window.initApp === "function") {
       window.initApp();
@@ -449,13 +435,6 @@
       <h2 id="listTitle" style="margin-bottom: 12px;">記事一覧</h2>
       <hr class="divider">
       <ul id="articleListContainer" class="article-list"></ul>
-      
-      <!-- 10個ずつ表示（ページネーション）コントロール -->
-      <div id="paginationControls" class="pagination-container" style="display: none;">
-        <button id="btnPrevPage" class="btn btn-outline btn-sm" onclick="changePage(-1)">← 前の10件</button>
-        <span id="paginationInfo" class="pagination-info"></span>
-        <button id="btnNextPage" class="btn btn-outline btn-sm" onclick="changePage(1)">次の10件 →</button>
-      </div>
     </div>
 
   </div>
@@ -492,11 +471,7 @@
 
     // キャッシュ
     let articlesCache = null;
-
-    // ページネーション管理用
-    let currentListItems = [];
-    let currentPage = 1;
-    const ITEMS_PER_PAGE = 10;
+    let unsubscribeArticles = null;
 
     window.initApp = async function() {
       if (window.isFirebaseReady && window.db) {
@@ -509,6 +484,21 @@
         } catch (e) {
           console.warn("Firestore初期登録スキップ:", e);
         }
+        
+        // リアルタイム変更を監視してキャッシュを最新に保つ
+        window.onSnapshot(window.collection(window.db, "articles"), (snapshot) => {
+          if (!articlesCache) articlesCache = {};
+          snapshot.forEach((doc) => {
+            articlesCache[doc.id] = doc.data();
+          });
+          // 記事一覧を表示中であれば動的に更新する
+          if (document.getElementById('viewList').style.display === 'block') {
+            const listTitle = document.getElementById('listTitle').textContent;
+            if (listTitle === '記事一覧') {
+              renderAllArticlesList(articlesCache);
+            }
+          }
+        });
       }
       handleRoute();
     };
@@ -639,7 +629,6 @@
       links.forEach(link => {
         const targetTitle = (link.getAttribute('data-target') || link.textContent).trim();
         
-        // 全記事一覧にタイトルが存在するか判別
         if (targetTitle && allArticles.hasOwnProperty(targetTitle)) {
           link.classList.remove('wiki-link-missing');
           link.classList.add('wiki-link-exists');
@@ -889,7 +878,7 @@
 
       if (window.isFirebaseReady && window.db) {
         try {
-          await window.setDoc(window.doc(window.doc(window.db, "articles", title)), articleData);
+          await window.setDoc(window.doc(window.db, "articles", title), articleData);
         } catch (e) {
           console.warn("Firestore保存エラー:", e);
         }
@@ -927,7 +916,7 @@
       return articles;
     }
 
-    //  おまかせ表示機能
+    // おまかせ表示機能
     async function openRandomArticle() {
       const articles = await getAllArticles();
       const keys = Object.keys(articles);
@@ -939,67 +928,33 @@
       navigateTo(randomTitle);
     }
 
-    // 記事一覧を表示（10件ずつ分割設定）
+    // 記事一覧を表示（全件を一括読み込み・表示）
     async function showArticleList() {
       showView('viewList');
       document.getElementById('listTitle').textContent = '記事一覧';
-      const container = document.getElementById('articleListContainer');
       
-      if (!articlesCache) {
-        container.innerHTML = '<li>読み込み中...</li>';
-      }
-
       const articles = await getAllArticles();
-      currentListItems = Object.keys(articles);
-      currentPage = 1;
-
-      renderPaginatedList();
+      renderAllArticlesList(articles);
     }
 
-    // 10件ずつのリスト描写処理
-    function renderPaginatedList() {
+    // 全記事を一括描写する処理
+    function renderAllArticlesList(articles) {
       const container = document.getElementById('articleListContainer');
-      const controls = document.getElementById('paginationControls');
+      const keys = Object.keys(articles);
 
-      if (currentListItems.length === 0) {
+      if (keys.length === 0) {
         container.innerHTML = '<li>表示できる記事がありません。</li>';
-        controls.style.display = 'none';
         return;
       }
 
-      const totalPages = Math.ceil(currentListItems.length / ITEMS_PER_PAGE);
-      if (currentPage < 1) currentPage = 1;
-      if (currentPage > totalPages) currentPage = totalPages;
-
-      const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-      const endIndex = startIndex + ITEMS_PER_PAGE;
-      const pageItems = currentListItems.slice(startIndex, endIndex);
-
-      container.innerHTML = pageItems.map(key => `
+      container.innerHTML = keys.map(key => `
         <li>
           <span class="link-btn" onclick="navigateTo('${escapeHtml(key)}')">${escapeHtml(key)}</span>
         </li>
       `).join('');
-
-      // ページ数が1より多い場合にボタンエリアを表示
-      if (totalPages > 1) {
-        controls.style.display = 'flex';
-        document.getElementById('paginationInfo').textContent = `${currentPage} / ${totalPages} ページ（全${currentListItems.length}件）`;
-        document.getElementById('btnPrevPage').disabled = (currentPage === 1);
-        document.getElementById('btnNextPage').disabled = (currentPage === totalPages);
-      } else {
-        controls.style.display = 'none';
-      }
     }
 
-    // ページ切替関数
-    function changePage(direction) {
-      currentPage += direction;
-      renderPaginatedList();
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    /* 検索処理（10件ずつページネーション適用） */
+    /* 検索処理（全件一括表示） */
     async function performSearch() {
       const query = document.getElementById('searchInput').value.trim().toLowerCase();
       if (!query) return;
@@ -1007,22 +962,17 @@
       showView('viewList');
       document.getElementById('listTitle').textContent = `「${query}」のタイトル検索結果`;
       const container = document.getElementById('articleListContainer');
-      
-      if (!articlesCache) {
-        container.innerHTML = '<li>検索中...</li>';
-      }
 
       const articles = await getAllArticles();
-      currentListItems = [];
+      const filteredArticles = {};
 
       for (const title of Object.keys(articles)) {
         if (title.toLowerCase().includes(query)) {
-          currentListItems.push(title);
+          filteredArticles[title] = articles[title];
         }
       }
 
-      currentPage = 1;
-      renderPaginatedList();
+      renderAllArticlesList(filteredArticles);
     }
 
     function handleSearchKeyPress(event) {
